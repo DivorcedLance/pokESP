@@ -112,6 +112,21 @@ app.put('/products/amount/:ean13', async (req, res) => {
   }
 });
 
+app.delete('/products/:ean13', async (req, res) => {
+  const { ean13 } = req.params;
+  try {
+    await db.execute({
+      sql: 'DELETE FROM products WHERE ean13 = ?',
+      args: [ean13],
+    });
+    res.send('Producto eliminado');
+  } catch (error) {
+    console.error('Error al eliminar el producto:', error);
+    res.status(500).send('Error al procesar la solicitud');
+  }
+});
+
+
 // Rutas para la tabla user
 app.post('/users', async (req, res) => {
   const { userid, password, username } = req.body;

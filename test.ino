@@ -147,10 +147,10 @@ void setup() {
   setupWifi();
 
   // Test functions
-  const char* apiBaseUrl = "http://your-api-base-url"; // Replace with your API base URL
+  const char* apiBaseUrl = "https://pokesp.onrender.com"; // Replace with your API base URL
 
-  // Validate user
-  validateUser((String(apiBaseUrl) + "/users/validate").c_str(), "testuser", "testpassword");
+  // // Validate user
+  // validateUser((String(apiBaseUrl) + "/users/validate").c_str(), "testuser", "testpassword");
 
   // Get product
   getProduct((String(apiBaseUrl) + "/products").c_str(), "1234567890123");
