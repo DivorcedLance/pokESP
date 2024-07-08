@@ -1,6 +1,6 @@
 #include <Keypad.h>
 #include <Wire.h>               /*~ Librería I2C ~*/
-#include <LiquidCrystal_I2C.h>  /*~ Librería LCD ~*/
+#include <LiquidCrystal.h>  /*~ Librería LCD ~*/
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <HTTPClient.h>
@@ -21,7 +21,7 @@ char keys[ROWS][COLS] = {
   { '1', '2', '3', 'A' },
   { '4', '5', '6', 'B' },
   { '7', '8', '9', 'C' },
-  { '*', '0', '#', 'D' }
+  { '.', '0', '#', 'D' }
 };
 
 uint8_t colPins[COLS] = { 12, 13, 32, 33 }; // Pins connected to C1, C2, C3, C4
@@ -29,15 +29,11 @@ uint8_t rowPins[ROWS] = { 25, 26, 27, 14 }; // Pins connected to R1, R2, R3, R4
 
 Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
 
-LiquidCrystal_I2C lcd ( 0x27, 20, 4 );  /*~ Instancia de la clase para el manejo de la pantalla ( Dirección I2C, cantidad de columnas, cantidad de filas ) ~*/
+const int rs = 22, en = 21, d4 = 5, d5 = 18, d6 = 19, d7 = 23;
+LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
 void setupLcd() {
-  lcd.init();
-  lcd.backlight();
-  delay ( 1000 );
-  lcd.noBacklight ( );
-  delay ( 1000 );
-  lcd.backlight();
+  lcd.begin(20, 4);
   lcd.clear();
 }
 
