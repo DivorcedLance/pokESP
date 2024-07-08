@@ -2,6 +2,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
 const { createClient } = require('@libsql/client');
+const path = require('path');
 
 dotenv.config();
 
@@ -42,6 +43,7 @@ const db = createClient({
 })();
 
 app.use(bodyParser.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Rutas para la tabla products
 app.post('/products', async (req, res) => {
@@ -186,5 +188,5 @@ app.post('/users/validate', async (req, res) => {
 
 // Inicia el servidor
 app.listen(port, () => {
-  console.log(`Servidor Express en ejecución en http://localhost:${port}`);
+  console.log(`Servidor Express en ejecución en el puerto ${port}`);
 });
