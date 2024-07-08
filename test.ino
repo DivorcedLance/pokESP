@@ -155,14 +155,14 @@ void setup() {
   // Get product
   getProduct((String(apiBaseUrl) + "/products").c_str(), "1234567890123");
 
-  // Update price
-  updatePrice((String(apiBaseUrl) + "/products").c_str(), "1234567890123", 19.99);
+  // // Update price
+  // updatePrice((String(apiBaseUrl) + "/products").c_str(), "1234567890123", 19.99);
 
-  // Update amount
-  updateAmount((String(apiBaseUrl) + "/products").c_str(), "1234567890123", 50);
+  // // Update amount
+  // updateAmount((String(apiBaseUrl) + "/products").c_str(), "1234567890123", 50);
 
-  // Delete product
-  deleteProduct((String(apiBaseUrl) + "/products").c_str(), "1234567890123");
+  // // Delete product
+  // deleteProduct((String(apiBaseUrl) + "/products").c_str(), "1234567890123");
 }
 
 void loop() {
