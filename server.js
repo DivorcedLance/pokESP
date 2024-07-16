@@ -168,6 +168,20 @@ app.get('/users/:userid', async (req, res) => {
   }
 });
 
+app.delete('/users/:userid', async (req, res) => {
+  const { userid } = req.params;
+  try {
+    await db.execute({
+      sql: 'DELETE FROM user WHERE userid = ?',
+      args: [userid],
+    });
+    res.send('Usuario eliminado');
+  } catch (error) {
+    console.error('Error al eliminar el usuario:', error);
+    res.status(500).send('Error al procesar la solicitud');
+  }
+});
+
 app.post('/users/validate', async (req, res) => {
   const { userid, password } = req.body;
   try {
