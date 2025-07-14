@@ -10,7 +10,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 const db = createClient({
-  url: 'libsql://pokesp-db-divorcedlance.turso.io',
+  url: 'libsql://pokesp-db-divorcedlance.aws-us-west-2.turso.io',
   authToken: process.env.DB_TOKEN,
 });
 
