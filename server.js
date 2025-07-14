@@ -201,6 +201,16 @@ app.post('/users/validate', async (req, res) => {
   }
 });
 
+app.get('/debug', async (req, res) => {
+  try {
+    const response = await db.execute('SELECT * FROM products');
+    console.log("Debug /products:", response.rows);
+    res.json(response.rows);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Inicia el servidor
 app.listen(port, () => {
   console.log(`Servidor Express en ejecución en el puerto ${port}`);
