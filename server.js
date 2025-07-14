@@ -9,12 +9,15 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3000;
 
+// --- Inicializa base de datos (puedes cambiar a solo nube si quieres) ---
 const db = createClient({
-  url: 'libsql://pokesp-db-divorcedlance.aws-us-west-2.turso.io',
+  url: "file:local.db",
+  syncUrl: process.env.TURSO_URL,
   authToken: process.env.DB_TOKEN,
-  syncUrl: null, //
+  syncInterval: 60000
 });
 
+// --- Migraciones iniciales ---
 (async () => {
   try {
     await db.execute(`
@@ -25,12 +28,6 @@ const db = createClient({
         amount INTEGER
       );
     `);
-  } catch (error) {
-    console.error('Error al ejecutar la consulta SQL:', error);
-  }
-})();
-(async () => {
-  try {
     await db.execute(`
       CREATE TABLE IF NOT EXISTS user (
         userid TEXT PRIMARY KEY,
@@ -38,16 +35,33 @@ const db = createClient({
         username TEXT
       );
     `);
+    console.log("Tablas inicializadas correctamente.");
   } catch (error) {
-    console.error('Error al ejecutar la consulta SQL:', error);
+    console.error('❌ Error al crear tablas:', error);
+    // Considera terminar el proceso si no se pueden crear las tablas
+    process.exit(1);
   }
 })();
 
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Rutas para la tabla products
-app.post('/products', async (req, res) => {
+// --- Función robusta para logging de errores ---
+function logError(location, err, req) {
+  console.error(`❌ [${location}]`, {
+    message: err.message,
+    stack: err.stack,
+    path: req?.path,
+    method: req?.method,
+    body: req?.body,
+    params: req?.params,
+    query: req?.query,
+  });
+}
+
+// --- Endpoints para productos ---
+
+app.post('/products', async (req, res, next) => {
   const { ean13, name, price, amount } = req.body;
   try {
     await db.execute({
@@ -56,82 +70,97 @@ app.post('/products', async (req, res) => {
     });
     res.send('Producto agregado');
   } catch (error) {
-    console.error('Error al insertar en la base de datos:', error);
-    res.status(500).send('Error al procesar la solicitud');
+    logError('POST /products', error, req);
+    if (error.message?.includes("UNIQUE constraint failed")) {
+      return res.status(409).send('Ya existe un producto con ese EAN13');
+    }
+    next(error);
   }
 });
 
-app.get('/products', async (req, res) => {
+app.get('/products', async (req, res, next) => {
   try {
     const response = await db.execute('SELECT * FROM products');
     res.json(response.rows);
   } catch (error) {
-    console.error('Error al obtener datos de la base de datos:', error);
-    res.status(500).send('Error al procesar la solicitud');
+    logError('GET /products', error, req);
+    next(error);
   }
 });
 
-app.get('/products/:ean13', async (req, res) => {
+app.get('/products/:ean13', async (req, res, next) => {
   const { ean13 } = req.params;
   try {
     const response = await db.execute({
       sql: 'SELECT * FROM products WHERE ean13 = ?',
       args: [ean13],
     });
+    if (response.rows.length === 0) {
+      return res.status(404).send('Producto no encontrado');
+    }
     res.json(response.rows[0]);
   } catch (error) {
-    console.error('Error al obtener datos de la base de datos:', error);
-    res.status(500).send('Error al procesar la solicitud');
+    logError('GET /products/:ean13', error, req);
+    next(error);
   }
 });
 
-app.put('/products/price/:ean13', async (req, res) => {
+app.put('/products/price/:ean13', async (req, res, next) => {
   const { ean13 } = req.params;
   const { price } = req.body;
   try {
-    await db.execute({
+    const result = await db.execute({
       sql: 'UPDATE products SET price = ? WHERE ean13 = ?',
       args: [price, ean13],
     });
+    if (result.rowsAffected === 0) {
+      return res.status(404).send('Producto no encontrado');
+    }
     res.send('Precio actualizado');
   } catch (error) {
-    console.error('Error al actualizar el precio:', error);
-    res.status(500).send('Error al procesar la solicitud');
+    logError('PUT /products/price/:ean13', error, req);
+    next(error);
   }
 });
 
-app.put('/products/amount/:ean13', async (req, res) => {
+app.put('/products/amount/:ean13', async (req, res, next) => {
   const { ean13 } = req.params;
   const { amount } = req.body;
   try {
-    await db.execute({
+    const result = await db.execute({
       sql: 'UPDATE products SET amount = ? WHERE ean13 = ?',
       args: [amount, ean13],
     });
+    if (result.rowsAffected === 0) {
+      return res.status(404).send('Producto no encontrado');
+    }
     res.send('Cantidad actualizada');
   } catch (error) {
-    console.error('Error al actualizar la cantidad:', error);
-    res.status(500).send('Error al procesar la solicitud');
+    logError('PUT /products/amount/:ean13', error, req);
+    next(error);
   }
 });
 
-app.delete('/products/:ean13', async (req, res) => {
+app.delete('/products/:ean13', async (req, res, next) => {
   const { ean13 } = req.params;
   try {
-    await db.execute({
+    const result = await db.execute({
       sql: 'DELETE FROM products WHERE ean13 = ?',
       args: [ean13],
     });
+    if (result.rowsAffected === 0) {
+      return res.status(404).send('Producto no encontrado');
+    }
     res.send('Producto eliminado');
   } catch (error) {
-    console.error('Error al eliminar el producto:', error);
-    res.status(500).send('Error al procesar la solicitud');
+    logError('DELETE /products/:ean13', error, req);
+    next(error);
   }
 });
 
+// --- Endpoints para usuarios ---
 
-// Rutas para la tabla user
-app.post('/users', async (req, res) => {
+app.post('/users', async (req, res, next) => {
   const { userid, password, username } = req.body;
   try {
     await db.execute({
@@ -140,50 +169,59 @@ app.post('/users', async (req, res) => {
     });
     res.send('Usuario agregado');
   } catch (error) {
-    console.error('Error al insertar en la base de datos:', error);
-    res.status(500).send('Error al procesar la solicitud');
+    logError('POST /users', error, req);
+    if (error.message?.includes("UNIQUE constraint failed")) {
+      return res.status(409).send('Ya existe un usuario con ese UserID');
+    }
+    next(error);
   }
 });
 
-app.get('/users', async (req, res) => {
+app.get('/users', async (req, res, next) => {
   try {
     const response = await db.execute('SELECT * FROM user');
     res.json(response.rows);
   } catch (error) {
-    console.error('Error al obtener datos de la base de datos:', error);
-    res.status(500).send('Error al procesar la solicitud');
+    logError('GET /users', error, req);
+    next(error);
   }
 });
 
-app.get('/users/:userid', async (req, res) => {
+app.get('/users/:userid', async (req, res, next) => {
   const { userid } = req.params;
   try {
     const response = await db.execute({
       sql: 'SELECT * FROM user WHERE userid = ?',
       args: [userid],
     });
+    if (response.rows.length === 0) {
+      return res.status(404).send('Usuario no encontrado');
+    }
     res.json(response.rows[0]);
   } catch (error) {
-    console.error('Error al obtener datos de la base de datos:', error);
-    res.status(500).send('Error al procesar la solicitud');
+    logError('GET /users/:userid', error, req);
+    next(error);
   }
 });
 
-app.delete('/users/:userid', async (req, res) => {
+app.delete('/users/:userid', async (req, res, next) => {
   const { userid } = req.params;
   try {
-    await db.execute({
+    const result = await db.execute({
       sql: 'DELETE FROM user WHERE userid = ?',
       args: [userid],
     });
+    if (result.rowsAffected === 0) {
+      return res.status(404).send('Usuario no encontrado');
+    }
     res.send('Usuario eliminado');
   } catch (error) {
-    console.error('Error al eliminar el usuario:', error);
-    res.status(500).send('Error al procesar la solicitud');
+    logError('DELETE /users/:userid', error, req);
+    next(error);
   }
 });
 
-app.post('/users/validate', async (req, res) => {
+app.post('/users/validate', async (req, res, next) => {
   const { userid, password } = req.body;
   try {
     const response = await db.execute({
@@ -196,22 +234,38 @@ app.post('/users/validate', async (req, res) => {
       res.status(401).send('Usuario o contraseña incorrectos');
     }
   } catch (error) {
-    console.error('Error al validar el usuario:', error);
-    res.status(500).send('Error al procesar la solicitud');
+    logError('POST /users/validate', error, req);
+    next(error);
   }
 });
 
-app.get('/debug', async (req, res) => {
+// --- Endpoint de debug (solo para desarrollo) ---
+app.get('/debug', async (req, res, next) => {
   try {
     const response = await db.execute('SELECT * FROM products');
     console.log("Debug /products:", response.rows);
     res.json(response.rows);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
+  } catch (error) {
+    logError('GET /debug', error, req);
+    next(error);
   }
 });
 
-// Inicia el servidor
+// --- Middleware de manejo global de errores ---
+app.use((err, req, res, next) => {
+  // Aquí puedes mejorar el mensaje para el usuario final
+  if (process.env.NODE_ENV === 'development') {
+    // En desarrollo, muestra más detalles
+    return res.status(500).json({
+      error: err.message,
+      stack: err.stack,
+    });
+  }
+  // En producción, mensaje genérico
+  res.status(500).json({ error: 'Ocurrió un error inesperado. Intenta de nuevo más tarde.' });
+});
+
+// --- Inicializa servidor ---
 app.listen(port, () => {
   console.log(`Servidor Express en ejecución en el puerto ${port}`);
 });
